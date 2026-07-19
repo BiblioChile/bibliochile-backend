@@ -1,0 +1,196 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output = "./generated"
+}
+
+// prisma/schema.prisma
+datasource db {
+  provider  = "postgresql"
+}
+
+// BiblioChile — Schema de base de datos
+// 11 tablas normalizadas en 3FN
+
+// ─────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────
+
+enum Role {
+  pasajero
+  autor
+  admin
+}
+
+enum AuthorStatus {
+  pendiente
+  aprobado
+  rechazado
+}
+
+enum SubscriptionPlanName {
+  mensual
+  anual
+}
+
+enum SubscriptionStatus {
+  activa
+  expirada
+  cancelada
+}
+
+// ─────────────────────────────────────
+// MODELOS
+// ─────────────────────────────────────
+
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  role       Role     @default(pasajero)
+  uuid       String   @unique @default(uuid())
+  created_at DateTime @default(now())
+
+  // Relaciones
+  author          Author?
+  subscriptions   Subscription[]
+  rentals         Rental[]
+  readingProgress ReadingProgress[]
+  qrCodes         QRCode[]
+}
+
+model PublicDomainAuthor {
+  id         Int     @id @default(autoincrement())
+  name       String
+  bio        String?
+  birth_year Int?
+  death_year Int?
+
+  // Relaciones
+  books Book[]
+}
+
+model Author {
+  id                   Int          @id @default(autoincrement())
+  user_id              Int          @unique
+  rut                  String       @unique
+  bio                  String?
+  status               AuthorStatus @default(pendiente)
+  declaration_accepted Boolean      @default(false)
+  created_at           DateTime     @default(now())
+
+  // Relaciones
+  user  User   @relation(fields: [user_id], references: [id])
+  books Book[]
+}
+
+model Genre {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  // Relaciones
+  books BookGenre[]
+}
+
+model Book {
+  id                      Int      @id @default(autoincrement())
+  title                   String
+  author_id               Int?
+  public_domain_author_id Int?
+  is_free                 Boolean  @default(false)
+  content_url             String
+  cover_url               String?
+  description             String?
+  created_at              DateTime @default(now())
+
+  // Relaciones
+  author             Author?            @relation(fields: [author_id], references: [id])
+  publicDomainAuthor PublicDomainAuthor? @relation(fields: [public_domain_author_id], references: [id])
+  genres             BookGenre[]
+  rentals            Rental[]
+  readingProgress    ReadingProgress[]
+  qrCodes            QRCode[]
+}
+
+model BookGenre {
+  book_id  Int
+  genre_id Int
+
+  // Relaciones
+  book  Book  @relation(fields: [book_id], references: [id])
+  genre Genre @relation(fields: [genre_id], references: [id])
+
+  @@id([book_id, genre_id])
+}
+
+model SubscriptionPlan {
+  id           Int                  @id @default(autoincrement())
+  name         SubscriptionPlanName
+  duration_days Int
+  price        Decimal
+  max_rentals  Int
+
+  // Relaciones
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id         Int                @id @default(autoincrement())
+  user_id    Int
+  plan_id    Int
+  start_date DateTime
+  end_date   DateTime
+  status     SubscriptionStatus @default(activa)
+  created_at DateTime           @default(now())
+
+  // Relaciones
+  user    User             @relation(fields: [user_id], references: [id])
+  plan    SubscriptionPlan @relation(fields: [plan_id], references: [id])
+  rentals Rental[]
+}
+
+model Rental {
+  id              Int      @id @default(autoincrement())
+  user_id         Int
+  book_id         Int
+  subscription_id Int
+  rented_at       DateTime @default(now())
+  expires_at      DateTime
+
+  // Relaciones
+  user         User         @relation(fields: [user_id], references: [id])
+  book         Book         @relation(fields: [book_id], references: [id])
+  subscription Subscription @relation(fields: [subscription_id], references: [id])
+}
+
+model ReadingProgress {
+  id                  Int      @id @default(autoincrement())
+  user_id             Int?
+  anonymous_uuid      String?
+  book_id             Int
+  progress_percentage Decimal  @default(0)
+  last_position       String?
+  updated_at          DateTime @default(now())
+
+  // Relaciones
+  user User? @relation(fields: [user_id], references: [id])
+  book Book  @relation(fields: [book_id], references: [id])
+}
+
+model QRCode {
+  id             Int      @id @default(autoincrement())
+  location_name  String
+  url            String
+  target_book_id Int
+  is_active      Boolean  @default(true)
+  created_by     Int
+  created_at     DateTime @default(now())
+
+  // Relaciones
+  book      Book @relation(fields: [target_book_id], references: [id])
+  createdBy User @relation(fields: [created_by], references: [id])
+}
