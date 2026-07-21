@@ -64,3 +64,28 @@
 - `sprint-X`: una rama por sprint, todo el trabajo va aquí
 - Razón: trazabilidad clara por sprint, simple para proyecto individual
 - Se descartó GitFlow por ser overhead innecesario para un desarrollador solo
+
+## 2026-07-18 — Cierre Sprint 1
+
+### Resumen de lo construido
+- Proyecto Node.js inicializado con Express (patrón MVC)
+- Estructura de carpetas: routes, middlewares, controllers, services, prisma
+- Configuración de Prisma 7 con @prisma/adapter-pg y Pool de conexiones
+- Schema de base de datos con 11 tablas normalizadas en 3FN migradas a Neon
+- Seed inicial — usuario admin y planes de suscripción (mensual/anual)
+- Endpoint GET /health funcionando y verificado
+- Mockups HTML trazables con HU-01 a HU-10 commiteados en repo frontend
+- Design system compartido (styles.css) con paleta oficial
+
+### Decisiones técnicas del sprint
+- Node 22 con ES Modules ("type": "module") — sintaxis import/export en todo el proyecto
+- node --watch en vez de nodemon — nativo en Node 18+, sin dependencia extra
+- Prisma 7 requiere driver adapter obligatorio — se usa @prisma/adapter-pg con Pool
+- prisma/generated/ agregado a .gitignore — es código autogenerado, no se versiona
+- Branch dev en Neon separado de production — migraciones de desarrollo no afectan producción
+- seed configurado en prisma.config.ts bajo migrations.seed — no en package.json (cambio de Prisma 7)
+
+### Estado de ramas
+- main → rama central, contiene el Sprint 1 completo
+- sprint-1 → rama de desarrollo del Sprint 1 (sin PR formal por orden de creación)
+- A partir del Sprint 2 el flujo PR será: sprint-X → PR → main
