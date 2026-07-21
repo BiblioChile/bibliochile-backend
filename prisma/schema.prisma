@@ -51,6 +51,7 @@ model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
   password   String
+  name       String
   role       Role     @default(pasajero)
   uuid       String   @unique @default(uuid())
   created_at DateTime @default(now())
