@@ -8,6 +8,7 @@ node_modules/
 
 # Prisma
 prisma/migrations/dev.db
+prisma/generated
 
 # Logs
 *.log
