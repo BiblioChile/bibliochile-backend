@@ -183,15 +183,12 @@ npm run test    # tests con Vitest
 
 ## Estado del desarrollo
 
-| Sprint | Módulo | Estado |
-|---|---|---|
-| Sprint 1 | Fundación — Express, Prisma, schema, seed | ✅ Completo |
-| Sprint 2 | Autenticación — JWT, roles, middlewares | 🔄 En progreso |
-| Sprint 3 | Catálogo y lectura | ⬜ Pendiente |
-| Sprint 4 | Autor Nacional | ⬜ Pendiente |
-| Sprint 5 | Suscripción y arriendo | ⬜ Pendiente |
-| Sprint 6 | Administrador | ⬜ Pendiente |
-| Sprint 7 | QR, tests y deploy | ⬜ Pendiente |
+| Sprint | Semanas | Módulo | Estado |
+|---|---|---|---|
+| Sprint 1 | S14–S17 | Análisis, diseño, arquitectura, mockups | ✅ Completo |
+| Sprint 2 | S18–S21 | Módulos core — catálogo, QR, suscripciones, progreso | 🔄 En progreso |
+| Sprint 3 | S22–S25 | Módulos complementarios, integración y certificación | ⬜ Pendiente |
+| Etapa Final | S25–S26 | Consolidación, informe final, defensa | ⬜ Pendiente |
 
 ---
 
