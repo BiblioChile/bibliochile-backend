@@ -89,3 +89,21 @@
 - main → rama central, contiene el Sprint 1 completo
 - sprint-1 → rama de desarrollo del Sprint 1 (sin PR formal por orden de creación)
 - A partir del Sprint 2 el flujo PR será: sprint-X → PR → main
+
+## 2026-07-25 — Cambios en el modelo de datos (Sprint 2)
+
+### Tabla QRCode — refactoring
+- Eliminados campos: `url`, `target_book_id` (FK → Book)
+- Agregados campos: `code` (String único), `gutendex_id` (Int)
+- Razón: los libros de dominio público vienen de Gutendex en tiempo real,
+  no se almacenan en la BD. El QR apunta al ID de Gutendex directamente,
+  eliminando la dependencia con la tabla Book.
+
+### Tabla Book — relación eliminada
+- Eliminada relación `qrCodes QRCode[]`
+- Razón: consecuencia del refactoring de QRCode — ya no hay FK entre ambas tablas
+
+### Tabla User — campo name agregado
+- Agregado campo `name String` como obligatorio
+- Migración especial: fila existente (admin) recibió valor 'Admin' como default temporal
+- Razón: necesario para identificar usuarios en el sistema más allá del email
