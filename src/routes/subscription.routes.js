@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { listPlans, subscribe } from "../controllers/subscription.controller.js";
+import { verifyToken } from "../middlewares/auth.middleware.js";
+import { validate } from "../middlewares/validation.middleware.js";
+import { subscriptionSchema } from "../schemas/subscription.schema.js";
+
+const router = Router();
+
+router.get("/plans", listPlans);
+router.post("/", verifyToken, validate(subscriptionSchema), subscribe);
+
+export default router;
