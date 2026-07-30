@@ -9,6 +9,9 @@
     "start": "node src/server.js",
     "test": "vitest"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bibliochile/bibliochile-backend.git"
