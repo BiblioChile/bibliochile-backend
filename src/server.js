@@ -4,6 +4,7 @@ import "dotenv/config";
 import authRoutes from "./routes/auth.routes.js";
 import bookRoutes from "./routes/book.routes.js";
 import qrRoutes from "./routes/qr.routes.js";
+import subscriptionRoutes from "./routes/subscription.routes.js"
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -16,6 +17,7 @@ app.use(express.json())
 app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/qr", qrRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 
 // Ruta de prueba
 app.get('/health', (req, res) => {
