@@ -179,6 +179,9 @@ model ReadingProgress {
   // Relaciones
   user User? @relation(fields: [user_id], references: [id])
   book Book  @relation(fields: [book_id], references: [id])
+
+  @@unique([user_id, book_id])
+  @@unique([anonymous_uuid, book_id])
 }
 
 model QRCode {
