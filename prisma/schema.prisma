@@ -114,7 +114,6 @@ model Book {
   genres             BookGenre[]
   rentals            Rental[]
   readingProgress    ReadingProgress[]
-  qrCodes            QRCode[]
 }
 
 model BookGenre {
@@ -184,14 +183,13 @@ model ReadingProgress {
 
 model QRCode {
   id             Int      @id @default(autoincrement())
+  code           String   @unique
   location_name  String
-  url            String
-  target_book_id Int
+  gutendex_id    Int
   is_active      Boolean  @default(true)
   created_by     Int
   created_at     DateTime @default(now())
 
   // Relaciones
-  book      Book @relation(fields: [target_book_id], references: [id])
   createdBy User @relation(fields: [created_by], references: [id])
 }
