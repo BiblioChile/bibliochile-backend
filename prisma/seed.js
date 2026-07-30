@@ -21,6 +21,7 @@ async function main() {
       email: "admin@bibliochile.cl",
       password: hashedPassword,
       role: "admin",
+      name: "Admin BiblioChile"
     },
   });
 
@@ -48,8 +49,46 @@ async function main() {
       max_rentals: 8,
     },
   });
-
   console.log("Planes creados:", planMensual.name, planAnual.name);
+
+  // 3. Crear códigos QR de prueba
+  const qr1 = await prisma.qRCode.upsert({
+    where: { code: "BCH-001" },
+    update: {},
+    create: {
+      code: "BCH-001",
+      location_name: "Estación Baquedano, andén sur",
+      gutendex_id: 2000,    // Don Quijote
+      is_active: true,
+      created_by: admin.id,
+    },
+  });
+
+  const qr2 = await prisma.qRCode.upsert({
+    where: { code: "BCH-002" },
+    update: {},
+    create: {
+      code: "BCH-002",
+      location_name: "Estación Universidad de Chile, andén norte",
+      gutendex_id: 21282,   // Tradiciones peruanas
+      is_active: true,
+      created_by: admin.id,
+    },
+  });
+
+  const qr3 = await prisma.qRCode.upsert({
+    where: { code: "BCH-003" },
+    update: {},
+    create: {
+      code: "BCH-003",
+      location_name: "Estación Tobalaba, andén sur",
+      gutendex_id: 67979,   // QR inactivo para pruebas
+      is_active: false,
+      created_by: admin.id,
+    },
+  });
+
+  console.log("QRs creados:", qr1.code, qr2.code, qr3.code);
 }
 
 main()
