@@ -7,7 +7,7 @@ const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, 
 
     const where = userId
     ? { user_id_book_id: { user_id: userId, book_id: bookId } }
-    : { anonymous_uuid_book_id: { anonymous_uuid: nonymousUuid, book_id: bookId } };
+    : { anonymous_uuid_book_id: { anonymous_uuid: anonymousUuid, book_id: bookId } };
 
     const progress = await prisma.readingProgress.upsert({
         where,
@@ -35,7 +35,7 @@ const syncProgress = async (userId, anonymousUuid) => {
             anonymous_uuid: null,
         },
     });
-    return { synced: updated.count };
+    return { synced: update.count };
 };
 
 export { saveProgress, syncProgress };
