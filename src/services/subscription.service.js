@@ -52,4 +52,26 @@ const createSubscription = async (userId,planId) => {
     return subscription ;
 };
 
-export { getPlans, createSubscription };
+const getActiveSubscription = async (userId) => {
+    const subscription = await prisma.subscription.findFirst({
+        where: { user_id: userId, status: "activa" },
+        include: {
+            plan: true,
+            _count: { select: { rentals: true } },
+        },
+    });
+
+    if (!subscription) {
+        return { active: false };
+    }
+
+    return {
+        active: true,
+        plan_name: subscription.plan.name,
+        end_date: subscription.end_date,
+        max_rentals: subscription.plan.max_rentals,
+        rentals_used: subscription._count.rentals,
+    };
+};
+
+export { getPlans, createSubscription, getActiveSubscription };

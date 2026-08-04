@@ -1,4 +1,5 @@
-import { getPlans, createSubscription } from "../services/subscription.service.js";
+//import { setServers } from "dns";
+import { getPlans, createSubscription, getActiveSubscription as getActiveSubscriptionService } from "../services/subscription.service.js";
 
 const listPlans = async (req, res) => {
     try{
@@ -10,8 +11,6 @@ const listPlans = async (req, res) => {
 };
 
 const subscribe = async (req, res) => {
-
-    console.log("subscribe llamado", req.body, req.user);  // ← agrega esto
 
     try {
         const { planId }  = req.body;
@@ -30,4 +29,13 @@ const subscribe = async (req, res) => {
     }
 };
 
-export { listPlans, subscribe };
+const getActiveSubscription = async (req, res) => {
+    try {
+        const result = await getActiveSubscriptionService(req.user.id);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export { listPlans, subscribe, getActiveSubscription};
