@@ -134,3 +134,14 @@
 - La validación de "campos vacíos" se prueba contra el schema Zod correspondiente, no
   contra el servicio — es ahí donde realmente ocurre en el pipeline (middleware
   `validate()` antes del controller)
+
+## 2026-08-07 — CI en GitHub Actions + Auto-Deploy condicionado en Render
+
+### Workflow `.github/workflows/test.yml`
+- Corre `npm ci`, `npx prisma generate` y `npm test` en cada push/PR a `main`, en Node 22
+- Razón: Render permite configurar el Auto-Deploy en modo "After CI Checks Pass" (en vez de
+  "On Commit"), pero esa opción depende de que exista un status check de CI reportado a
+  GitHub sobre el commit — sin este workflow, la opción no tenía ningún check que esperar y
+  equivalía en la práctica a "On Commit"
+- Con el workflow en su lugar, Render en `main` queda configurado en "After CI Checks Pass":
+  un commit con tests fallando en `main` no dispara el deploy a producción
