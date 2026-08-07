@@ -122,13 +122,46 @@ prisma/
 
 ### Sprint 1 — Fundación
 ```
-GET  /health                    → verifica que el servidor está activo
+GET  /health                       → verifica que el servidor está activo
 ```
 
-### Sprint 2 — Autenticación (en desarrollo)
+### Sprint 2 — Módulos core
+
+**Autenticación**
 ```
-POST /api/auth/register         → registro de usuario
-POST /api/auth/login            → login y obtención de token JWT
+POST /api/auth/register            → registro de usuario
+POST /api/auth/login               → login y obtención de token JWT
+```
+
+**Catálogo** (integración con Gutendex)
+```
+GET  /api/books                    → lista libros (filtros: search, genre, page)
+GET  /api/books/:id                → detalle de un libro
+```
+
+**Códigos QR**
+```
+GET  /api/qr/:code                 → escanea un QR físico y redirige al libro
+```
+
+**Suscripciones**
+```
+GET  /api/subscriptions/plans      → lista planes disponibles (mensual / anual)
+POST /api/subscriptions            → suscribe al usuario autenticado a un plan
+GET  /api/subscriptions/me         → suscripción activa del usuario, plan y arriendos usados
+```
+
+**Arriendos**
+```
+POST /api/rentals                  → arrienda un libro bajo la suscripción activa
+GET  /api/rentals/me                → lista los arriendos del usuario autenticado
+```
+
+**Progreso de lectura** (usuarios registrados y anónimos vía `anonymousUuid`)
+```
+GET  /api/progress                 → progreso guardado (propio o por anonymousUuid)
+POST /api/progress                 → guarda/actualiza progreso de un libro
+POST /api/progress/sync            → migra progreso anónimo a la cuenta al hacer login
 ```
 
 ---
@@ -177,6 +210,19 @@ PORT=3000
 npm run dev     # servidor con recarga automática (node --watch)
 npm run start   # servidor en producción
 npm run test    # tests con Vitest
+```
+
+---
+
+## Pruebas
+
+Pruebas unitarias con **Vitest**, mockeando Prisma (no requieren base de datos real).
+
+```
+tests/unit/                              → tests unitarios por servicio
+docs/pruebas-unitarias/                  → documentación de cada prueba (objetivo,
+                                            escenarios, resultado esperado/obtenido)
+docs/procedimiento-paso-a-produccion-*.md → procedimiento de despliegue por sprint
 ```
 
 ---
