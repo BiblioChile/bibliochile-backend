@@ -1,4 +1,3 @@
-//import { setServers } from "dns";
 import { getPlans, createSubscription, getActiveSubscription as getActiveSubscriptionService } from "../services/subscription.service.js";
 
 const listPlans = async (req, res) => {
