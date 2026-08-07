@@ -25,7 +25,7 @@ const subscribe = async (req, res) => {
         if (error.message === "Plan no encontrado" ) {
             return res.status(404).json({message: error.message});
         }
-        res.status(500)
+        res.status(500).json({ message: error.message });
     }
 };
 
