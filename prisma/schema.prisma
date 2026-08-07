@@ -51,6 +51,7 @@ model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
   password   String
+  name       String
   role       Role     @default(pasajero)
   uuid       String   @unique @default(uuid())
   created_at DateTime @default(now())
@@ -113,7 +114,6 @@ model Book {
   genres             BookGenre[]
   rentals            Rental[]
   readingProgress    ReadingProgress[]
-  qrCodes            QRCode[]
 }
 
 model BookGenre {
@@ -179,18 +179,20 @@ model ReadingProgress {
   // Relaciones
   user User? @relation(fields: [user_id], references: [id])
   book Book  @relation(fields: [book_id], references: [id])
+
+  @@unique([user_id, book_id])
+  @@unique([anonymous_uuid, book_id])
 }
 
 model QRCode {
   id             Int      @id @default(autoincrement())
+  code           String   @unique
   location_name  String
-  url            String
-  target_book_id Int
+  gutendex_id    Int
   is_active      Boolean  @default(true)
   created_by     Int
   created_at     DateTime @default(now())
 
   // Relaciones
-  book      Book @relation(fields: [target_book_id], references: [id])
   createdBy User @relation(fields: [created_by], references: [id])
 }

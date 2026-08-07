@@ -89,3 +89,48 @@
 - main → rama central, contiene el Sprint 1 completo
 - sprint-1 → rama de desarrollo del Sprint 1 (sin PR formal por orden de creación)
 - A partir del Sprint 2 el flujo PR será: sprint-X → PR → main
+
+## 2026-07-25 — Cambios en el modelo de datos (Sprint 2)
+
+### Tabla QRCode — refactoring
+- Eliminados campos: `url`, `target_book_id` (FK → Book)
+- Agregados campos: `code` (String único), `gutendex_id` (Int)
+- Razón: los libros de dominio público vienen de Gutendex en tiempo real,
+  no se almacenan en la BD. El QR apunta al ID de Gutendex directamente,
+  eliminando la dependencia con la tabla Book.
+
+### Tabla Book — relación eliminada
+- Eliminada relación `qrCodes QRCode[]`
+- Razón: consecuencia del refactoring de QRCode — ya no hay FK entre ambas tablas
+
+### Tabla User — campo name agregado
+- Agregado campo `name String` como obligatorio
+- Migración especial: fila existente (admin) recibió valor 'Admin' como default temporal
+- Razón: necesario para identificar usuarios en el sistema más allá del email
+
+## 2026-08-06 — Módulo de arriendos (Sprint 2)
+
+### Endpoint POST /api/rentals
+- Nuevo módulo (`rental.service.js` / `rental.controller.js` / `rental.routes.js`) que
+  faltaba: el modelo `Rental` ya existía en el schema y `GET /subscriptions/me` ya
+  contaba `rentals_used`, pero no había forma de crear un arriendo real
+- Reglas implementadas:
+  - Requiere suscripción con `status: "activa"` → si no existe, 403
+  - El cupo (`max_rentals` del plan) se cuenta sobre el total de `Rental` asociados a
+    la suscripción vigente (mismo criterio que ya usaba `getActiveSubscription`), no
+    sobre arriendos concurrentes/no expirados
+  - Si ya existe un arriendo vigente (no expirado) del mismo libro en la misma
+    suscripción, se reutiliza en vez de descontar cupo de nuevo (evita doble cobro
+    por reabrir un libro ya arrendado)
+  - `expires_at` del arriendo se fija igual a `end_date` de la suscripción — el
+    arriendo dura mientras la suscripción esté activa
+- `GET /api/rentals/me` lista los arriendos del usuario con el libro embebido
+
+### Testing del sprint
+- Pruebas unitarias con Vitest sobre la capa de servicio, mockeando Prisma (sin BD
+  real) — cubren login, suscripción, progreso de lectura y arriendos
+- Documentación de cada prueba (formato solicitado por el profesor, 3 escenarios:
+  mejor caso / caso inválido / campos vacíos) en `docs/pruebas-unitarias/`
+- La validación de "campos vacíos" se prueba contra el schema Zod correspondiente, no
+  contra el servicio — es ahí donde realmente ocurre en el pipeline (middleware
+  `validate()` antes del controller)
