@@ -12,7 +12,16 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
 
   // 1. Crear usuario administrador
-  const hashedPassword = await bcrypt.hash("admin1234", 10);
+  // La password se lee de ADMIN_PASSWORD (variable de entorno) para no dejar
+  // credenciales hardcodeadas en el repo. En dev, si no se define, se usa un
+  // valor por defecto y se avisa por consola.
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    console.warn(
+      "ADMIN_PASSWORD no está definida — usando password por defecto 'admin1234' (solo para desarrollo)."
+    );
+  }
+  const hashedPassword = await bcrypt.hash(adminPassword || "admin1234", 10);
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@bibliochile.cl" },
