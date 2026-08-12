@@ -81,6 +81,89 @@ Verificar la lógica del caso de uso **Guardar progreso de lectura**, comproband
 
 ### Resultado obtenido
 
-✅ **PASS** — los 3 tests del archivo pasaron en la ejecución de `npx vitest run` del 2026-08-05.
+✅ **PASS** — los 6 tests de `saveProgress` del archivo pasaron en la ejecución de `npx vitest run` del 2026-08-12, 18:21 hrs.
 
 **Nota:** esta prueba también sirve como regresión del bugfix aplicado en `saveProgress` (campo `update_at` mal escrito y `Date()` sin `new` — ver `DECISIONS.md`), ya que el `expect` del Escenario 1 verifica explícitamente el contenido del `update` enviado a Prisma.
+
+---
+
+## Función `getProgress` (consulta de progreso — HU-04)
+
+### Caso de uso / Historia de usuario a probar
+
+| Código EC  | Caso de Uso                                          |
+|------------|--------------------------------------------------------|
+| EC-CU-003  | Consultar / retomar progreso de lectura de un usuario  |
+
+**Archivo bajo prueba:** `src/services/progress.service.js` (función `getProgress`)
+**Archivo de test:** `tests/unit/progress.service.test.js`
+**Schema de validación:** no aplica — `getProgress` no está validada por un schema Zod; la ruta `GET /` valida la presencia de `userId`/`anonymousUuid` directamente en `progress.controller.js`.
+
+---
+
+### Objetivo general de la prueba
+
+Verificar la lógica del caso de uso **Consultar progreso de lectura**, comprobando que el sistema:
+
+- Devuelva el listado de progresos (solo los que tienen `progress_percentage < 100`) mapeado al formato esperado por el frontend, cuando viene identificado por `userId` o `anonymousUuid`.
+- Rechace la consulta si no viene ninguno de los dos identificadores.
+- Devuelva una lista vacía cuando el usuario/anónimo no tiene progresos guardados, sin lanzar error.
+- Resuelva el nombre del autor con la prioridad `book.publicDomainAuthor.name` → `book.author.user.name` → `null`.
+
+---
+
+### Pasos de la prueba
+
+| ID | Descripción |
+|----|-------------|
+| 1  | Invocar `getProgress({ userId, anonymousUuid })`. |
+| 2  | Mockear `prisma.readingProgress.findMany` según el escenario. |
+| 3  | Verificar el resultado devuelto (o el error lanzado). |
+| 4  | Confirmar que el `where` del `findMany` use la llave correcta (`user_id` o `anonymous_uuid`) junto a `progress_percentage: { lt: 100 }`, y que el `orderBy` sea `updated_at: "desc"`. |
+| 5  | Registrar el resultado obtenido y compararlo con el resultado esperado. |
+
+---
+
+### Evaluación de escenarios
+
+#### Escenario 1: Mejor caso
+
+| Campo               | Dato       |
+|----------------------|------------|
+| userId               | 7          |
+| anonymousUuid        | null       |
+| registros mockeados  | 2 (uno con `publicDomainAuthor`, otro con `author.user`) |
+
+**Salida esperada**
+- Se invoca `prisma.readingProgress.findMany` con `where: { user_id: 7, progress_percentage: { lt: 100 } }` y `orderBy: { updated_at: "desc" }`.
+- El resultado se mapea a `{ bookId, progressPercentage, lastPosition, updatedAt, book: { id, title, author, cover_url } }`.
+- El campo `book.author` toma `publicDomainAuthor.name` cuando existe, y cae a `author.user.name` cuando el libro es de un autor nacional.
+
+#### Escenario 2: Caso inválido
+
+| Campo               | Dato       |
+|----------------------|------------|
+| userId               | null       |
+| anonymousUuid        | null       |
+
+**Salida esperada**
+- Se lanza el error `"Se requiere userId o anonymousUuid"`.
+- `prisma.readingProgress.findMany` no es invocado.
+
+#### Escenario 3: Campos vacíos
+
+| Campo               | Dato          |
+|----------------------|---------------|
+| userId               | null          |
+| anonymousUuid        | "uuid-anon-1" |
+| registros mockeados  | [] (sin progresos guardados) |
+
+**Salida esperada**
+- Se invoca `prisma.readingProgress.findMany` con `where: { anonymous_uuid: "uuid-anon-1", progress_percentage: { lt: 100 } }`.
+- El servicio devuelve un arreglo vacío `[]` sin lanzar error (usuario/anónimo sin progreso registrado).
+
+---
+
+### Resultado obtenido
+
+✅ **PASS** — los 3 tests de `getProgress` pasaron en la ejecución de `npx vitest run tests/unit/progress.service.test.js` del 2026-08-12, 18:21 hrs (12/12 tests del archivo completo, incluyendo `saveProgress` y `syncProgress`).
