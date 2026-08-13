@@ -15,7 +15,19 @@ const saveReadingProgress = async (req, res) => {
 
     res.status(200).json(progress);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    if (error.message === "Se requiere user_id o anonymous_uuid") {
+      return res.status(400).json({ message: error.message });
+    }
+    if (error.message === "Libro no encontrado") {
+      return res.status(404).json({ message: error.message });
+    }
+    if (
+      error.message === "No se pudo sincronizar el libro para guardar el progreso" ||
+      error.message === "No se pudo guardar el progreso"
+    ) {
+      return res.status(502).json({ message: error.message });
+    }
+    res.status(500).json({ message: "Error interno al guardar el progreso" });
   }
 };
 

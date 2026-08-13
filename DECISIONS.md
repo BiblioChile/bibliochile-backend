@@ -145,3 +145,54 @@
   equivalía en la práctica a "On Commit"
 - Con el workflow en su lugar, Render en `main` queda configurado en "After CI Checks Pass":
   un commit con tests fallando en `main` no dispara el deploy a producción
+
+## 2026-08-10 — Fix: ReadingProgress fallaba para libros gratuitos de Gutendex
+
+### El problema
+- `ReadingProgress.book_id` tiene FK real a `Book.id` en Postgres, pero `Book`
+  nunca se puebla para el catálogo gratuito: `BookService` sirve los libros
+  100% en vivo desde Gutendex, sin persistirlos
+- Resultado: `POST /api/progress` para cualquier libro de dominio público
+  (el caso de uso más común del proyecto) fallaba con un 500 crudo —
+  violación de foreign key de Postgres sin capturar, subiendo tal cual hasta
+  el controller
+- La tabla `Book` está vacía en cualquier ambiente recién sembrado: no existe
+  ningún `create`/`upsert` sobre `Book` en el seed ni en ningún otro punto
+  del backend
+
+### Por qué RentalService se mantiene sin cambios
+- `Rental` está scopeado a obras de autores nacionales contemporáneos
+  (`Author`, no `PublicDomainAuthor`), que generan pago real y por tanto
+  deben existir como filas reales en `Book` de antemano (con `author_id`,
+  `content_url` propio, etc.)
+- Auto-crear un `Book` "fantasma" al momento de arrendar rompería esa regla
+  de integridad y permitiría arrendar (cobrar) libros que nadie registró
+  formalmente — el 404 actual ("Libro no encontrado") es el comportamiento
+  correcto para ese flujo y no se toca
+
+### Cómo quedó resuelto ProgressService
+- `saveProgress` ahora llama a `ensureBookExists(bookId)` antes del upsert
+  de `ReadingProgress`:
+  - Si el `Book` ya existe localmente (gratuito o de pago), sigue igual
+  - Si no existe, se consulta `BookService.getBookById` contra Gutendex:
+    - Si el libro existe ahí, se crea automáticamente en `Book` con
+      `is_free: true` y los datos mínimos disponibles (mismo `id` que el de
+      Gutendex, siguiendo la misma convención que ya usaba `RentalService`)
+    - Si no existe en Gutendex tampoco (caso de un libro de pago sin fila en
+      `Book`), se lanza `"Libro no encontrado"` — mismo mensaje/semántica que
+      usa `RentalService`, sin crear nada
+- Se envuelven los `upsert` en try/catch para traducir cualquier falla real
+  de base de datos a un mensaje de negocio (`502`) en vez de un 500 crudo
+
+### Deuda técnica conocida
+- Usar `id: bookId` explícito (en vez de dejar que Prisma autoincrement asigne
+  el id) crea un riesgo real de colisión: cuando el contador interno de
+  autoincrement de `Book`, en su conteo normal (1, 2, 3...), alcance por
+  coincidencia un número ya usado como ID de Gutendex (ej. 2000, usado por
+  Don Quijote), el `INSERT` de una fila nueva de autor nacional (HU-06,
+  Sprint 3) fallará con `UniqueConstraintViolation`
+- La solución correcta es agregar un campo `gutendex_id` (`Int?`, `@unique`)
+  separado de `id`, y hacer que `ProgressService` y `RentalService` busquen
+  por ese campo en vez de por `id` — pero se pospone deliberadamente para
+  priorizar el plazo de la entrega académica actual
+- Este fix debe aplicarse antes de implementar HU-06 en Sprint 3
