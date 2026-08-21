@@ -102,6 +102,7 @@ model Book {
   title                   String
   author_id               Int?
   public_domain_author_id Int?
+  gutendex_id             Int?     @unique
   is_free                 Boolean  @default(false)
   content_url             String
   cover_url               String?
