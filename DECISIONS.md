@@ -196,3 +196,47 @@
   por ese campo en vez de por `id` — pero se pospone deliberadamente para
   priorizar el plazo de la entrega académica actual
 - Este fix debe aplicarse antes de implementar HU-06 en Sprint 3
+
+## 2026-08-20 — Fix: desfase de versión Prisma CLI/client + resolución del riesgo de colisión de ID en Book
+
+### Desfase de versión Prisma CLI/client
+- Se detectó que `prisma` (CLI) estaba en `7.9.1` mientras `@prisma/client`
+  seguía en `7.8.0` — probablemente causa raíz del error
+  `Invalid prisma.X.findUnique() invocation` sin detalle observado durante
+  la presentación de Sumativa 2 (nunca diagnosticado en su momento)
+- Se alinearon ambos paquetes a `7.9.1` (última estable) en `package.json`,
+  se corrió `npx prisma generate` y se confirmó `npx vitest run` en verde
+  (44/44) antes de continuar
+
+### Resolución del riesgo de colisión de ID en Book (deuda técnica de la
+### entrada anterior)
+- Se agregó `gutendex_id Int? @unique` a `Book` (migración
+  `20260820233108_add_gutendex_id_to_book`), separado del `id` interno
+  (`Int @id @default(autoincrement())`, que ya no recibe un valor explícito
+  igual al de Gutendex en ningún `create`/`upsert`)
+- `ProgressService.ensureBookExists()` ahora:
+  1. Busca primero por `id` interno (caso de un libro de pago ya existente)
+  2. Si no existe, busca por `gutendex_id` (caso de un libro gratuito ya
+     sincronizado previamente)
+  3. Si tampoco existe, consulta Gutendex y crea el `Book` con
+     `gutendex_id: bookId` (no `id: bookId`) — el `id` interno lo asigna el
+     autoincrement de Postgres, sin riesgo de colisión futura
+- `saveProgress()` usa el `id` interno devuelto por `ensureBookExists()`
+  como FK real de `ReadingProgress.book_id` (antes usaba el `bookId`
+  externo directamente, que ahora puede diferir del interno)
+- `getProgress()` devuelve `bookId: book.gutendex_id ?? book.book_id` para
+  mantener el contrato externo esperado por el frontend (id de Gutendex
+  para libros gratuitos, id interno para libros de pago)
+- `RentalService.createRental()` se revisó y **no requirió cambios**: nunca
+  crea filas de `Book` con un `id` explícito, solo busca por `id` interno
+  libros de pago que ya deben existir (creados por el flujo de autor,
+  Módulo 4) — no tiene la convención riesgosa que sí tenía `ProgressService`
+- Tabla `Book` local estaba vacía al momento del fix (sin datos que
+  backfillear)
+
+### CORS
+- Se reemplazó `cors()` sin argumentos (permite cualquier origen) por una
+  whitelist explícita: `http://localhost:4173` (preview build) y
+  `http://localhost:5173` (dev server). Queda un `TODO` en `server.js`
+  señalando dónde agregar el dominio real de producción del frontend
+  (Vercel) cuando exista
