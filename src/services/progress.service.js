@@ -45,18 +45,29 @@ const ensureBookExists = async (bookId) => {
     }
 };
 
-const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, lastPosition}) => {
+// Ambas rutas (guardar/consultar progreso) son de un usuario autenticado o
+// de un dispositivo anónimo (por uuid); nunca de ninguno de los dos.
+const requireOwner = (userId, anonymousUuid, message) => {
     if (!userId && !anonymousUuid) {
-        throw new Error("Se requiere user_id o anonymous_uuid")
+        throw new Error(message);
     }
+};
+
+// Clave compuesta que identifica un ReadingProgress: el dueño (usuario o
+// anónimo) más el libro. Coincide con los @@unique del modelo Prisma.
+const progressWhere = (userId, anonymousUuid, bookId) =>
+    userId
+        ? { user_id_book_id: { user_id: userId, book_id: bookId } }
+        : { anonymous_uuid_book_id: { anonymous_uuid: anonymousUuid, book_id: bookId } };
+
+const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, lastPosition}) => {
+    requireOwner(userId, anonymousUuid, "Se requiere user_id o anonymous_uuid");
 
     // `bookId` es el identificador externo (Gutendex o Book.id de pago); el
     // FK real de ReadingProgress.book_id debe ser el id interno del Book.
     const book = await ensureBookExists(bookId);
 
-    const where = userId
-    ? { user_id_book_id: { user_id: userId, book_id: book.id } }
-    : { anonymous_uuid_book_id: { anonymous_uuid: anonymousUuid, book_id: book.id } };
+    const where = progressWhere(userId, anonymousUuid, book.id);
 
     try {
         const progress = await prisma.readingProgress.upsert({
@@ -81,9 +92,7 @@ const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, 
 };
 
 const getProgress = async ({ userId, anonymousUuid }) => {
-    if (!userId && !anonymousUuid) {
-        throw new Error("Se requiere userId o anonymousUuid");
-    }
+    requireOwner(userId, anonymousUuid, "Se requiere userId o anonymousUuid");
 
     const where = userId
         ? { user_id: userId }
