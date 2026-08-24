@@ -8,6 +8,7 @@ import subscriptionRoutes from "./routes/subscription.routes.js"
 import progressRoutes from "./routes/progress.routes.js"
 import rentalRoutes from "./routes/rental.routes.js"
 import authorRoutes from "./routes/author.routes.js"
+import adminRoutes from "./routes/admin.routes.js"
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -39,6 +40,7 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/rentals", rentalRoutes);
 app.use("/api/authors", authorRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Ruta de prueba
 app.get('/health', (req, res) => {
