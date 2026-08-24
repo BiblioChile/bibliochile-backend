@@ -32,6 +32,11 @@ enum AuthorStatus {
   rechazado
 }
 
+enum RejectionReason {
+  problema_sistema
+  otro
+}
+
 enum SubscriptionPlanName {
   mensual
   anual
@@ -76,13 +81,15 @@ model PublicDomainAuthor {
 }
 
 model Author {
-  id                   Int          @id @default(autoincrement())
-  user_id              Int          @unique
-  rut                  String       @unique
+  id                   Int              @id @default(autoincrement())
+  user_id              Int              @unique
+  rut                  String           @unique
   bio                  String?
-  status               AuthorStatus @default(pendiente)
-  declaration_accepted Boolean      @default(false)
-  created_at           DateTime     @default(now())
+  status               AuthorStatus     @default(pendiente)
+  declaration_accepted Boolean          @default(false)
+  rejection_reason     RejectionReason?
+  rejection_note       String?
+  created_at           DateTime         @default(now())
 
   // Relaciones
   user  User   @relation(fields: [user_id], references: [id])
