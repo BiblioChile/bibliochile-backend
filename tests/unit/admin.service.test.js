@@ -7,6 +7,8 @@ vi.mock("../../src/prisma/client.js", () => ({
     book: { findMany: vi.fn() },
     qRCode: { count: vi.fn(), create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     author: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    user: { update: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -208,11 +210,15 @@ describe("EC-PU-010 · admin.service.listPendingAuthors", () => {
 describe("EC-PU-010 · admin.service.approveAuthor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // approveAuthor hace prisma.$transaction([author.update(...), user.update(...)]) —
+    // se simula igual que Prisma real: ejecuta ambas operaciones y devuelve sus resultados en orden.
+    prisma.$transaction.mockImplementation((ops) => Promise.all(ops));
   });
 
-  it("Escenario 1 (mejor caso): aprueba un autor pendiente y limpia rejection_reason/note", async () => {
-    prisma.author.findUnique.mockResolvedValue({ id: 1, status: "pendiente" });
+  it("Escenario 1 (mejor caso): aprueba un autor pendiente, limpia rejection_reason/note, y actualiza User.role a 'autor'", async () => {
+    prisma.author.findUnique.mockResolvedValue({ id: 1, user_id: 10, status: "pendiente" });
     prisma.author.update.mockResolvedValue({ id: 1, status: "aprobado" });
+    prisma.user.update.mockResolvedValue({ id: 10, role: "autor" });
 
     const result = await approveAuthor(1);
 
@@ -221,22 +227,35 @@ describe("EC-PU-010 · admin.service.approveAuthor", () => {
       where: { id: 1 },
       data: { status: "aprobado", rejection_reason: null, rejection_note: null },
     });
+    // Éste es el fix: sin este update, un autor aprobado sigue con role "pasajero"
+    // y nunca puede pasar requireRole("autor") en las rutas de autor.
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { role: "autor" },
+    });
   });
 
-  it("Escenario 2 (caso inválido): autor inexistente rechaza con 'Autor no encontrado'", async () => {
+  it("Escenario 2 (caso inválido): autor inexistente rechaza con 'Autor no encontrado', sin transacción", async () => {
     prisma.author.findUnique.mockResolvedValue(null);
 
     await expect(approveAuthor(999)).rejects.toThrow("Autor no encontrado");
     expect(prisma.author.update).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("Escenario 3 (campos vacíos): re-aprueba un autor previamente rechazado", async () => {
-    prisma.author.findUnique.mockResolvedValue({ id: 2, status: "rechazado", rejection_reason: "otro" });
+  it("Escenario 3 (campos vacíos): re-aprueba un autor previamente rechazado y también actualiza el role", async () => {
+    prisma.author.findUnique.mockResolvedValue({ id: 2, user_id: 20, status: "rechazado", rejection_reason: "otro" });
     prisma.author.update.mockResolvedValue({ id: 2, status: "aprobado" });
+    prisma.user.update.mockResolvedValue({ id: 20, role: "autor" });
 
     const result = await approveAuthor(2);
 
     expect(result.status).toBe("aprobado");
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 20 },
+      data: { role: "autor" },
+    });
   });
 });
 

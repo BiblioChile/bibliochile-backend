@@ -84,14 +84,28 @@ const approveAuthor = async (authorId) => {
     throw new Error("Autor no encontrado");
   }
 
-  const updated = await prisma.author.update({
-    where: { id: authorId },
-    data: { status: "aprobado", rejection_reason: null, rejection_note: null },
-  });
+  // Las vistas/rutas de autor están gateadas por User.role === "autor", no
+  // por Author.status — hay que actualizar ambos o un autor aprobado sigue
+  // sin poder usarlas. Transacción para que no queden desincronizados si
+  // uno de los dos updates falla.
+  const [updated] = await prisma.$transaction([
+    prisma.author.update({
+      where: { id: authorId },
+      data: { status: "aprobado", rejection_reason: null, rejection_note: null },
+    }),
+    prisma.user.update({
+      where: { id: author.user_id },
+      data: { role: "autor" },
+    }),
+  ]);
 
   return updated;
 };
 
+// A diferencia de approveAuthor, este no toca User.role: un rechazo no debe
+// promover a nadie, así que el usuario simplemente se queda como "pasajero"
+// (o con el role que ya tuviera si se autodeclaró "autor" en /auth/register,
+// caso que este flujo de aprobación/rechazo no controla).
 const rejectAuthor = async (authorId, reason, note) => {
   const author = await prisma.author.findUnique({ where: { id: authorId } });
 
