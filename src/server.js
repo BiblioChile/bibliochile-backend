@@ -47,9 +47,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', project: 'BiblioChile API' })
 })
 
-// Arrancar servidor
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+// Arrancar servidor — solo si el archivo se ejecuta directamente (node
+// src/server.js), no cuando se importa `app` (tests de integración con
+// supertest importan la app sin necesidad de un puerto real escuchando).
+const isMainModule = process.argv[1] === new URL(import.meta.url).pathname;
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+  })
+}
 
 export default app
