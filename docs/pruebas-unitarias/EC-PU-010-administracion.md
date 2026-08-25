@@ -95,13 +95,27 @@ Variante 2b: error de Prisma al crear (con Gutendex validado OK) se propaga sin 
 - Devuelve autores con `status: "pendiente"` incluyendo `user: { name, email }`; propaga error de Prisma; devuelve `[]` sin pendientes.
 
 #### `approveAuthor` — Escenario 1: Mejor caso
-- Autor pendiente se actualiza a `status: "aprobado"`, limpiando `rejection_reason` y `rejection_note` a `null`.
+- Autor pendiente se actualiza a `status: "aprobado"`, limpiando `rejection_reason` y `rejection_note` a `null`,
+  **y además** actualiza `User.role` a `"autor"` (vía `author.user_id`), en la misma
+  `prisma.$transaction([author.update, user.update])`. Este segundo update es el fix de un bug
+  real encontrado el 2026-08-25: las rutas de autor están gateadas por `requireRole('autor')`,
+  que lee `role` del `User`, no el `status` del `Author` — sin este update, un autor aprobado
+  quedaba con `role: "pasajero"` para siempre y nunca podía usar `POST /authors/books` ni
+  `GET /authors/me/stats`.
 
 #### `approveAuthor` — Escenario 2: Caso inválido
-- Autor inexistente rechaza con `"Autor no encontrado"`; `prisma.author.update` no se invoca.
+- Autor inexistente rechaza con `"Autor no encontrado"`; ni `prisma.author.update` ni
+  `prisma.user.update` se invocan, y no se abre transacción.
 
 #### `approveAuthor` — Escenario 3: Campos vacíos
-- Un autor previamente rechazado también puede re-aprobarse (no hay restricción de estado previo).
+- Un autor previamente rechazado también puede re-aprobarse (no hay restricción de estado previo),
+  y también le actualiza el `role` a `"autor"`.
+
+#### `rejectAuthor` — sin cambios en `User.role`
+- A diferencia de `approveAuthor`, `rejectAuthor` **no** toca `User.role` — un rechazo no debe
+  promover a nadie. El usuario rechazado se queda con el `role` que ya tenía (`"pasajero"` en el
+  flujo esperado). Confirmado explícitamente, no solo por omisión: ver comentario en
+  `admin.service.js` junto a `rejectAuthor`.
 
 ---
 
@@ -144,6 +158,15 @@ Datos de prueba eliminados de la BD local al finalizar.
 ✅ **PASS** — los 22 tests de `admin.service.test.js` pasaron en la ejecución de `npx vitest run`
 del 2026-08-21 (81/81 tests del backend completo, 9 archivos). Verificación funcional manual (paso
 a paso arriba) también exitosa contra la BD local, incluyendo el 403 explícito sin rol admin.
+
+**Actualización 2026-08-25 — fix de `approveAuthor` (`User.role` no se actualizaba):**
+23 tests de `admin.service.test.js` en verde (el fix agregó verificación explícita de
+`prisma.user.update` en los 3 escenarios de `approveAuthor`, sin agregar un test nuevo). Suite
+completa del backend: 111/111 tests, 17 archivos. Verificación manual repetida contra la BD local
+real (registro pasajero → declara autor → `403` en ruta de autor con el token viejo → admin
+aprueba → `role` ya es `"autor"` en la BD, pero el mismo token viejo sigue en `403` porque el JWT
+no se actualiza solo → re-login con JWT fresco → `200` en `GET /api/authors/me/stats`). Datos de
+prueba eliminados al finalizar.
 
 **Nota:** la mejora UX opcional (validar `gutendexId` contra Gutendex antes de crear el QR,
 reutilizando `book.service.getBookById`) sí se implementó — ver escenarios 1 y 2 de `createQRCode`
