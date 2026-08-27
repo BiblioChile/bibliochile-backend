@@ -80,3 +80,28 @@ Variante 2b: `planId` que no existe en `SubscriptionPlan` → error `"Plan no en
 ### Resultado obtenido
 
 ✅ **PASS** — los 4 tests del archivo (incluida la variante 2b) pasaron en la ejecución de `npx vitest run` del 2026-08-05.
+
+---
+
+## EC-PU-002c — Cambiar de plan (`changeSubscriptionPlan`)
+
+**Archivo bajo prueba:** `src/services/subscription.service.js` (función `changeSubscriptionPlan`)
+**Motivo:** hueco de producto detectado al investigar la regresión "suscripción duplicada" (`env/prompt_investigar_regresiones.md`) — no había forma de cambiar de plan (ej. mensual → anual) mientras la suscripción estuviera vigente, solo de crear una nueva o quedar bloqueado con 409.
+
+### Objetivo
+
+- Con una suscripción activa existente: cancelarla (`status: "cancelada"`) y crear la nueva con el plan pedido, sin prorrateo (se pierden los días restantes de la anterior, criterio explícito del prompt).
+- Sin ninguna suscripción activa: comportarse igual que `createSubscription` (mismas validaciones, sin tocar `update`).
+- Plan inexistente: rechazar antes de tocar cualquier suscripción existente.
+
+### Evaluación de escenarios
+
+| # | Escenario | Salida esperada |
+|---|---|---|
+| 1 | Mejor caso — suscripción activa (`plan_id: 1`) + `changeSubscriptionPlan(userId, 2)` | `changed: true`; `prisma.subscription.update` llamado con `{ status: "cancelada" }` sobre la anterior; `prisma.subscription.create` llamado una vez con el plan nuevo |
+| 2 | Sin suscripción activa | `changed: false`; `prisma.subscription.update` **no** invocado; se crea la suscripción igual que `createSubscription` |
+| 3 | Plan inexistente | Lanza `"Plan no encontrado"`; ni `findFirst` ni `update` se llegan a invocar (falla antes, igual que `createSubscription`) |
+
+### Resultado obtenido
+
+✅ **PASS** — 3/3 tests de `EC-PU-002c` (7/7 en el archivo completo) en `npx vitest run` del 2026-08-27.

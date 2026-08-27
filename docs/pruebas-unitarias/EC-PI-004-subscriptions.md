@@ -55,3 +55,27 @@ Segunda llamada a `POST /api/subscriptions` (con `planId: 2`) sobre un usuario q
 ### Resultado obtenido
 
 ✅ **PASS** — 4/4 tests de `subscriptions.integration.test.js` pasaron en `npx vitest run tests/integration`. Datos de prueba eliminados en `afterEach`.
+
+---
+
+## EC-PI-004b — `PATCH /api/subscriptions` (cambiar de plan)
+
+**Ruta bajo prueba:** `PATCH /api/subscriptions` (`src/routes/subscription.routes.js`)
+**Referencia unitaria relacionada:** `EC-PU-002c` (con Prisma mockeado)
+
+### Objetivo
+
+Verificar contra Postgres real lo que `EC-PU-002c` no puede: que al cambiar de plan queden efectivamente **dos filas** en `Subscription` (la anterior `"cancelada"`, la nueva `"activa"`), que `GET /api/subscriptions/me` refleje el plan nuevo inmediatamente después, y que el caso sin suscripción activa y el caso de plan inexistente se comporten igual que en `POST /api/subscriptions`.
+
+### Evaluación de escenarios
+
+| # | Escenario | Resultado esperado |
+|---|---|---|
+| 1 | Mejor caso — con una suscripción `mensual` activa persistida, `PATCH` a `planId: 2` (anual) | `200`; body con `plan_id: 2`, `status: "activa"`; en Postgres quedan 2 filas (`plan_id: 1` → `"cancelada"`, `plan_id: 2` → `"activa"`); `GET /me` inmediatamente después ya muestra `plan_name: "anual"` |
+| 2 | Sin suscripción activa | `201` (mismo comportamiento que `POST /api/subscriptions`); en Postgres queda exactamente 1 fila |
+| 3 | `planId` inexistente, con una suscripción activa real de por medio | `404 Plan no encontrado`; la suscripción activa original queda intacta (no se cancela por un intento fallido) |
+| 4 | Sin token | `401` |
+
+### Resultado obtenido
+
+✅ **PASS** — 4/4 tests de `EC-PI-004b` (8/8 en `subscriptions.integration.test.js`, 136/136 en la suite completa) en `npx vitest run` del 2026-08-27. Datos de prueba eliminados en `afterEach`.
