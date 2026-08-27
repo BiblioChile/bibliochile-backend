@@ -15,11 +15,12 @@ const PORT = process.env.PORT || 3000
 
 // Middlewares globales
 const allowedOrigins = [
-  "http://localhost:4173", // preview build (vite preview)
-  "http://localhost:5173", // dev server (vite dev)
-  "http://192.168.1.14:4173", // IP de LAN para probar desde otro dispositivo — ajustar/quitar si cambia la IP local
-  // TODO: agregar acá el dominio real de producción del frontend (Vercel) cuando exista
-];
+  "http://localhost:4173", // local prod
+  "http://localhost:5173", // dev
+  process.env.LAN_ORIGIN,      //
+  process.env.FRONTEND_URL,    // producción real
+  ].filter(Boolean); // por si FRONTEND_URL no está definida en local, no metas "undefined" al arreglo
+  ;
 
 app.use(cors({
   origin: (origin, callback) => {
