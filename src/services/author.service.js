@@ -66,6 +66,31 @@ const uploadBook = async (authorId, bookData) => {
     return book;
 };
 
+// A diferencia de getAuthorByUserId (que lanza si no existe, pensado para
+// rutas que YA requieren ser autor), esta función es para GET /authors/me:
+// no existir un Author para este user_id es un estado válido y esperado
+// (un pasajero que nunca postuló), no un error — así el frontend puede
+// mostrar el estado real de la postulación (pendiente/aprobado/rechazado,
+// con motivo) sin depender de requireRole("autor"), que bloquea antes de
+// la aprobación.
+const getMyAuthorStatus = async (userId) => {
+    const author = await prisma.author.findUnique({ where: { user_id: userId } });
+
+    if (!author) {
+        return { hasApplication: false };
+    }
+
+    return {
+        hasApplication: true,
+        status: author.status,
+        rut: author.rut,
+        bio: author.bio,
+        rejectionReason: author.rejection_reason,
+        rejectionNote: author.rejection_note,
+        createdAt: author.created_at,
+    };
+};
+
 const getMyStats = async (authorId) => {
     const author = await prisma.author.findUnique({ where: { id: authorId } });
 
@@ -114,4 +139,4 @@ const getMyStats = async (authorId) => {
     };
 };
 
-export { registerAuthor, getAuthorByUserId, uploadBook, getMyStats };
+export { registerAuthor, getAuthorByUserId, uploadBook, getMyStats, getMyAuthorStatus };

@@ -175,3 +175,60 @@ describe("EC-PI-007 · /api/authors (HTTP real: registro → aprobación admin �
     expect(afterApproval.body.totalBooks).toBe(0);
   });
 });
+
+describe("EC-PI-007b · GET /api/authors/me (HTTP real, sin requireRole — funciona antes de la aprobación)", () => {
+  let userId;
+
+  afterEach(async () => {
+    await deleteTestUser(userId);
+    userId = undefined;
+  });
+
+  it("Escenario 1 (mejor caso): pasajero sin postulación — hasApplication: false, no 403 ni 404", async () => {
+    const { token, user } = await registerAndLogin({ role: "pasajero" });
+    userId = user.id;
+
+    const res = await request(app).get("/api/authors/me").set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ hasApplication: false });
+  });
+
+  it("Escenario 2 (caso pendiente/rechazado, con el token viejo — no requiere rol 'autor'): expone status y motivo de rechazo real", async () => {
+    const { token, user } = await registerAndLogin({ role: "pasajero" });
+    userId = user.id;
+
+    await request(app)
+      .post("/api/authors/register")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ rut: validRut(), declarationAccepted: true });
+
+    // Pendiente: con el mismo token de pasajero (sin re-login), /me/stats
+    // daría 403, pero /me debe funcionar igual.
+    const pendingRes = await request(app).get("/api/authors/me").set("Authorization", `Bearer ${token}`);
+    expect(pendingRes.status).toBe(200);
+    expect(pendingRes.body).toMatchObject({ hasApplication: true, status: "pendiente" });
+
+    const authorInDb = await prisma.author.findUnique({ where: { user_id: user.id } });
+    const adminToken = await loginAsAdmin();
+    await request(app)
+      .patch(`/api/admin/authors/${authorInDb.id}/reject`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "otro", note: "Datos incompletos EC-PI-007b" });
+
+    const rejectedRes = await request(app).get("/api/authors/me").set("Authorization", `Bearer ${token}`);
+    expect(rejectedRes.status).toBe(200);
+    expect(rejectedRes.body).toMatchObject({
+      hasApplication: true,
+      status: "rechazado",
+      rejectionReason: "otro",
+      rejectionNote: "Datos incompletos EC-PI-007b",
+    });
+  });
+
+  it("Escenario 3 (campos vacíos/middleware transversal): sin token, 401 — la ruta sigue requiriendo sesión aunque no requiera rol", async () => {
+    const res = await request(app).get("/api/authors/me");
+
+    expect(res.status).toBe(401);
+  });
+});

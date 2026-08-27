@@ -155,6 +155,25 @@ Variante 2b: `userId` que ya tiene un `Author` registrado → error `"Ya tienes 
 
 ---
 
+### EC-PU-009b — `getMyAuthorStatus` (`GET /authors/me`)
+
+Agregada 2026-08-27 junto con el batch de UX de `env/prompt_batch_ux.md` (punto 2 y 5:
+el perfil de pasajero no reflejaba el estado real de la postulación a autor). A
+diferencia de `getAuthorByUserId`, no tener un `Author` es un estado **válido**, no un
+error — así el frontend puede consultarlo antes de la aprobación, sin depender de
+`requireRole("autor")` (que bloquea mientras el `role` sigue siendo `"pasajero"`).
+
+#### Escenario 1: Mejor caso
+Usuario con `Author` en estado `"pendiente"` → devuelve `{ hasApplication: true, status: "pendiente", rut, bio, rejectionReason: null, rejectionNote: null, createdAt }`, sin lanzar.
+
+#### Escenario 2: Caso inválido/rechazado
+Usuario con `Author` en estado `"rechazado"` → expone `rejectionReason` y `rejectionNote` reales (`rejection_reason`/`rejection_note` de la tabla).
+
+#### Escenario 3: Campos vacíos
+Usuario sin ningún `Author` (nunca postuló) → `prisma.author.findUnique` devuelve `null` → la función devuelve `{ hasApplication: false }`, no lanza.
+
+---
+
 ### Endpoints y verificación funcional (manual, sobre la BD local de Docker)
 
 Además de los tests unitarios, se verificó manualmente el flujo completo levantando el servidor
@@ -176,6 +195,8 @@ Datos de prueba eliminados de la BD local al finalizar (usuario, autor y libro d
 
 ### Resultado obtenido
 
-✅ **PASS** — los 14 tests de `author.service.test.js` pasaron en la ejecución de `npx vitest run`
-del 2026-08-21 (58/58 tests del backend completo, 8 archivos). Verificación funcional manual (paso
-a paso arriba) también exitosa contra la BD local.
+✅ **PASS** — los 14 tests originales de `author.service.test.js` pasaron en la ejecución de
+`npx vitest run` del 2026-08-21 (58/58 tests del backend completo, 8 archivos). Verificación
+funcional manual (paso a paso arriba) también exitosa contra la BD local.
+✅ **PASS** — los 3 tests nuevos de EC-PU-009b pasaron en `npx vitest run tests/unit/author.service.test.js`
+del 2026-08-27 (17/17 tests del archivo en total).

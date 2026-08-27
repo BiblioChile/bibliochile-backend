@@ -81,3 +81,30 @@ Escenario 4 arriba. 4/4 tests de `author.integration.test.js` en verde contra la
 (Postgres, mismo `DATABASE_URL` que `npm run dev`). Suite completa del backend: 111/111 tests, 17
 archivos. Verificación manual adicional por HTTP directo (`curl`) con el mismo resultado. Datos de
 prueba eliminados en `afterEach` y al finalizar la verificación manual.
+
+---
+
+### EC-PI-007b — `GET /api/authors/me` (HTTP real, sin `requireRole`)
+
+Agregada 2026-08-27 junto con `getMyAuthorStatus` (ver `EC-PU-009b` y `env/prompt_batch_ux.md`,
+puntos 2 y 5) — a diferencia de `/me/stats`, esta ruta solo exige `verifyToken`, no
+`requireRole("autor")`, para que un pasajero con postulación pendiente o rechazada pueda consultar
+su estado real sin necesitar el rol que todavía no tiene.
+
+#### Escenario 1: Mejor caso
+Pasajero sin ningún `Author` → `GET /authors/me` → `200`, `{ hasApplication: false }` — ni `403` ni
+`404`, es un estado válido.
+
+#### Escenario 2: Caso pendiente/rechazado (cruza módulos)
+Pasajero declara autoría → `GET /authors/me` con el **mismo token de pasajero** (sin re-login) →
+`200`, `hasApplication: true, status: "pendiente"` (donde `/me/stats` habría dado `403`). Admin
+rechaza real (`PATCH /admin/authors/:id/reject`, `reason: "otro"`, con nota) → `GET /authors/me`
+refleja `status: "rechazado"`, `rejectionReason: "otro"` y la nota real persistida.
+
+#### Escenario 3: Middleware transversal
+`GET /authors/me` sin token → `401` — la ruta sigue exigiendo sesión, solo se relajó el chequeo de
+rol.
+
+**Resultado:** ✅ **7/7 tests de `author.integration.test.js`** (4 anteriores + 3 de EC-PI-007b)
+pasaron en `npx vitest run tests/integration --testTimeout=15000` del 2026-08-27. Suite completa
+del backend: 129/129 tests, 17 archivos. Datos de prueba eliminados en `afterEach`.

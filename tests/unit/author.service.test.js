@@ -12,7 +12,7 @@ vi.mock("../../src/prisma/client.js", () => ({
 }));
 
 import { prisma } from "../../src/prisma/client.js";
-import { registerAuthor, getAuthorByUserId, uploadBook, getMyStats } from "../../src/services/author.service.js";
+import { registerAuthor, getAuthorByUserId, uploadBook, getMyStats, getMyAuthorStatus } from "../../src/services/author.service.js";
 import { registerAuthorSchema, uploadBookSchema, isValidRut } from "../../src/schemas/author.schema.js";
 
 const VALID_RUT = "12345678-5";
@@ -191,5 +191,67 @@ describe("EC-PU-009 · author.service.getAuthorByUserId", () => {
     prisma.author.findUnique.mockResolvedValue(null);
 
     await expect(getAuthorByUserId(7)).rejects.toThrow("No tienes un registro de autor");
+  });
+});
+
+// EC-PU-009b — getMyAuthorStatus (GET /authors/me), agregado junto con el
+// batch de UX de env/prompt_batch_ux.md — a diferencia de
+// getAuthorByUserId, no existir un Author es un estado VÁLIDO (nunca
+// postuló), no un error: no lanza, devuelve { hasApplication: false }.
+describe("EC-PU-009b · author.service.getMyAuthorStatus", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("Escenario 1 (mejor caso): autor con postulación pendiente devuelve su estado real, sin lanzar", async () => {
+    prisma.author.findUnique.mockResolvedValue({
+      id: 1,
+      user_id: 7,
+      rut: "12345678-5",
+      bio: "Escritora",
+      status: "pendiente",
+      rejection_reason: null,
+      rejection_note: null,
+      created_at: new Date("2026-08-01"),
+    });
+
+    const result = await getMyAuthorStatus(7);
+
+    expect(result).toEqual({
+      hasApplication: true,
+      status: "pendiente",
+      rut: "12345678-5",
+      bio: "Escritora",
+      rejectionReason: null,
+      rejectionNote: null,
+      createdAt: new Date("2026-08-01"),
+    });
+  });
+
+  it("Escenario 2 (caso inválido/rechazado): autor rechazado expone el motivo y la nota", async () => {
+    prisma.author.findUnique.mockResolvedValue({
+      id: 2,
+      user_id: 8,
+      rut: "98765432-1",
+      bio: null,
+      status: "rechazado",
+      rejection_reason: "otro",
+      rejection_note: "Datos incompletos",
+      created_at: new Date("2026-08-01"),
+    });
+
+    const result = await getMyAuthorStatus(8);
+
+    expect(result.status).toBe("rechazado");
+    expect(result.rejectionReason).toBe("otro");
+    expect(result.rejectionNote).toBe("Datos incompletos");
+  });
+
+  it("Escenario 3 (campos vacíos): usuario que nunca postuló — no lanza, devuelve hasApplication: false", async () => {
+    prisma.author.findUnique.mockResolvedValue(null);
+
+    const result = await getMyAuthorStatus(999);
+
+    expect(result).toEqual({ hasApplication: false });
   });
 });

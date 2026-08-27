@@ -1,4 +1,4 @@
-import { registerAuthor, getAuthorByUserId, uploadBook, getMyStats } from "../services/author.service.js";
+import { registerAuthor, getAuthorByUserId, uploadBook, getMyStats, getMyAuthorStatus } from "../services/author.service.js";
 
 const register = async (req, res) => {
     try {
@@ -47,4 +47,13 @@ const getMyBookStats = async (req, res) => {
     }
 };
 
-export { register, uploadMyBook, getMyBookStats };
+const getMyAuthorStatusHandler = async (req, res) => {
+    try {
+        const result = await getMyAuthorStatus(req.user.id);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export { register, uploadMyBook, getMyBookStats, getMyAuthorStatusHandler };
