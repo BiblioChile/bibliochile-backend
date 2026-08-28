@@ -18,9 +18,31 @@ const getBooks = async ({ search, genre, page = 1 } = {}) => {
     if (search) params.append("search", search);
     if (genre) params.append("topic", genre);
 
-    const response = await fetch(`${GUTENDEX_URL}?${params}`);
+    let response;
+    try {
+        response = await fetch(`${GUTENDEX_URL}?${params}`);
+    } catch (networkError) {
+        // TODO(fix/gutendex-debug): logging temporal de diagnóstico — captura la causa
+        // real de un fallo de red (DNS, timeout, conexión rechazada) antes de relanzar
+        // el mismo mensaje genérico que ya veía el usuario. Quitar cuando se resuelva
+        // el bug de producción en Render.
+        console.error("[gutendex-debug] Fallo de red al conectar con Gutendex:", {
+            message: networkError.message,
+            cause: networkError.cause,
+        });
+        throw new Error("Error al conectar con Gutendex");
+    }
 
     if (!response.ok) {
+        // TODO(fix/gutendex-debug): logging temporal de diagnóstico — captura el status
+        // code y el body real que devolvió Gutendex antes de relanzar el mismo mensaje
+        // genérico. Quitar cuando se resuelva el bug de producción en Render.
+        const body = typeof response.text === "function" ? await response.text().catch(() => null) : null;
+        console.error("[gutendex-debug] Gutendex respondió con error:", {
+            status: response.status,
+            statusText: response.statusText,
+            body,
+        });
         throw new Error("Error al conectar con Gutendex");
     }
 
