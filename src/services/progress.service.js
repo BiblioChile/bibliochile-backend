@@ -2,15 +2,24 @@ import { prisma } from "../prisma/client.js";
 import { getBookById } from "./book.service.js";
 
 const ensureBookExists = async (bookId) => {
-    const existing = await prisma.book.findUnique({ where: { id: bookId } });
-    if (existing) {
-        return existing;
+    // `bookId` puede ser el id interno de un libro de pago (autor nacional,
+    // ya existente en Book vía el flujo de subida) o el id de Gutendex de un
+    // libro gratuito del catálogo público (HU-04), que puede no estar
+    // sincronizado todavía. Se prueban ambas interpretaciones.
+    const existingById = await prisma.book.findUnique({ where: { id: bookId } });
+    if (existingById) {
+        return existingById;
     }
 
-    // El libro no existe localmente. Solo se auto-crea si es un libro gratuito
-    // del catálogo público de Gutendex (HU-04). Los libros de pago (autores
-    // nacionales) deben existir en Book de antemano vía el flujo de arriendo —
-    // si no existen ahí, NO se crean automáticamente acá.
+    const existingByGutendexId = await prisma.book.findUnique({ where: { gutendex_id: bookId } });
+    if (existingByGutendexId) {
+        return existingByGutendexId;
+    }
+
+    // No existe localmente por ninguna de las dos vías. Solo se auto-crea si
+    // es un libro gratuito del catálogo público de Gutendex. Los libros de
+    // pago (autores nacionales) deben existir en Book de antemano vía el
+    // flujo de arriendo — si no existen ahí, NO se crean automáticamente acá.
     let gutendexBook;
     try {
         gutendexBook = await getBookById(bookId);
@@ -20,10 +29,10 @@ const ensureBookExists = async (bookId) => {
 
     try {
         return await prisma.book.upsert({
-            where: { id: bookId },
+            where: { gutendex_id: bookId },
             update: {},
             create: {
-                id: bookId,
+                gutendex_id: bookId,
                 title: gutendexBook.title,
                 is_free: true,
                 content_url: gutendexBook.content_url ?? `https://gutendex.com/books/${bookId}`,
@@ -36,16 +45,29 @@ const ensureBookExists = async (bookId) => {
     }
 };
 
-const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, lastPosition}) => {
+// Ambas rutas (guardar/consultar progreso) son de un usuario autenticado o
+// de un dispositivo anónimo (por uuid); nunca de ninguno de los dos.
+const requireOwner = (userId, anonymousUuid, message) => {
     if (!userId && !anonymousUuid) {
-        throw new Error("Se requiere user_id o anonymous_uuid")
+        throw new Error(message);
     }
+};
 
-    await ensureBookExists(bookId);
+// Clave compuesta que identifica un ReadingProgress: el dueño (usuario o
+// anónimo) más el libro. Coincide con los @@unique del modelo Prisma.
+const progressWhere = (userId, anonymousUuid, bookId) =>
+    userId
+        ? { user_id_book_id: { user_id: userId, book_id: bookId } }
+        : { anonymous_uuid_book_id: { anonymous_uuid: anonymousUuid, book_id: bookId } };
 
-    const where = userId
-    ? { user_id_book_id: { user_id: userId, book_id: bookId } }
-    : { anonymous_uuid_book_id: { anonymous_uuid: anonymousUuid, book_id: bookId } };
+const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, lastPosition}) => {
+    requireOwner(userId, anonymousUuid, "Se requiere user_id o anonymous_uuid");
+
+    // `bookId` es el identificador externo (Gutendex o Book.id de pago); el
+    // FK real de ReadingProgress.book_id debe ser el id interno del Book.
+    const book = await ensureBookExists(bookId);
+
+    const where = progressWhere(userId, anonymousUuid, book.id);
 
     try {
         const progress = await prisma.readingProgress.upsert({
@@ -58,7 +80,7 @@ const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, 
             create: {
                 user_id: userId ?? null,
                 anonymous_uuid: anonymousUuid ?? null,
-                book_id: bookId,
+                book_id: book.id,
                 progress_percentage: progressPercentage,
                 last_position: lastPosition
             },
@@ -70,9 +92,7 @@ const saveProgress = async ({userId, anonymousUuid, bookId, progressPercentage, 
 };
 
 const getProgress = async ({ userId, anonymousUuid }) => {
-    if (!userId && !anonymousUuid) {
-        throw new Error("Se requiere userId o anonymousUuid");
-    }
+    requireOwner(userId, anonymousUuid, "Se requiere userId o anonymousUuid");
 
     const where = userId
         ? { user_id: userId }
@@ -92,7 +112,9 @@ const getProgress = async ({ userId, anonymousUuid }) => {
     });
 
     return progress.map((p) => ({
-        bookId: p.book_id,
+        // Id externo con el que el cliente pidió el progreso originalmente:
+        // gutendex_id para libros gratuitos, id interno para libros de pago.
+        bookId: p.book.gutendex_id ?? p.book_id,
         progressPercentage: Number(p.progress_percentage),
         lastPosition: p.last_position,
         updatedAt: p.updated_at,

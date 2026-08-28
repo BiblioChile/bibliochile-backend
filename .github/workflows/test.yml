@@ -1,4 +1,3 @@
-
 name: Tests
 on:
   push:
@@ -25,6 +24,6 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bibliochile_test
- 
+          
       - name: Run unit tests
         run: npx vitest run tests/unit

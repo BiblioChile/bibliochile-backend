@@ -67,7 +67,8 @@ describe("EC-PU-003 · progress.service.saveProgress", () => {
     expect(fields).toEqual(expect.arrayContaining(["bookId", "progressPercentage"]));
   });
 
-  it("Escenario 4 (libro gratuito nuevo): se sincroniza automáticamente desde Gutendex y crea el Book", async () => {
+  it("Escenario 4 (libro gratuito nuevo): se sincroniza automáticamente desde Gutendex y crea el Book por gutendex_id", async () => {
+    // El libro no existe localmente ni por id interno ni por gutendex_id
     prisma.book.findUnique.mockResolvedValue(null);
     getBookById.mockResolvedValue({
       id: 55465,
@@ -76,11 +77,12 @@ describe("EC-PU-003 · progress.service.saveProgress", () => {
       cover_url: "https://gutendex.com/covers/55465.jpg",
       description: "Novela costumbrista chilena.",
     });
-    prisma.book.upsert.mockResolvedValue({ id: 55465, is_free: true });
+    // El id interno (autoincrement) es independiente del id de Gutendex
+    prisma.book.upsert.mockResolvedValue({ id: 501, gutendex_id: 55465, is_free: true });
     prisma.readingProgress.upsert.mockResolvedValue({
       id: 2,
       user_id: 7,
-      book_id: 55465,
+      book_id: 501,
       progress_percentage: 10,
     });
 
@@ -93,13 +95,21 @@ describe("EC-PU-003 · progress.service.saveProgress", () => {
     });
 
     expect(getBookById).toHaveBeenCalledWith(55465);
+    expect(prisma.book.findUnique).toHaveBeenNthCalledWith(1, { where: { id: 55465 } });
+    expect(prisma.book.findUnique).toHaveBeenNthCalledWith(2, { where: { gutendex_id: 55465 } });
     expect(prisma.book.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 55465 },
-        create: expect.objectContaining({ id: 55465, title: "Martín Rivas", is_free: true }),
+        where: { gutendex_id: 55465 },
+        create: expect.objectContaining({ gutendex_id: 55465, title: "Martín Rivas", is_free: true }),
       })
     );
-    expect(result.book_id).toBe(55465);
+    // El FK de ReadingProgress usa el id interno del Book, no el de Gutendex
+    expect(prisma.readingProgress.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { user_id_book_id: { user_id: 7, book_id: 501 } },
+      })
+    );
+    expect(result.book_id).toBe(501);
   });
 
   it("Escenario 5 (libro gratuito ya existente): no vuelve a crear el Book", async () => {

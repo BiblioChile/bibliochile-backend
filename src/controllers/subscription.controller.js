@@ -1,4 +1,9 @@
-import { getPlans, createSubscription, getActiveSubscription as getActiveSubscriptionService } from "../services/subscription.service.js";
+import {
+    getPlans,
+    createSubscription,
+    getActiveSubscription as getActiveSubscriptionService,
+    changeSubscriptionPlan as changeSubscriptionPlanService,
+} from "../services/subscription.service.js";
 
 const listPlans = async (req, res) => {
     try{
@@ -37,4 +42,21 @@ const getActiveSubscription = async (req, res) => {
     }
 };
 
-export { listPlans, subscribe, getActiveSubscription};
+const changePlan = async (req, res) => {
+    try {
+        const { planId } = req.body;
+        const userId = req.user.id;
+
+        const { subscription, changed } = await changeSubscriptionPlanService(userId, planId);
+        // 200 si reemplazó una suscripción vigente, 201 si no había ninguna
+        // y en la práctica se comportó como crear una nueva.
+        res.status(changed ? 200 : 201).json(subscription);
+    } catch (error) {
+        if (error.message === "Plan no encontrado") {
+            return res.status(404).json({ message: error.message });
+        }
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export { listPlans, subscribe, getActiveSubscription, changePlan };

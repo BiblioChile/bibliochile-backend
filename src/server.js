@@ -7,12 +7,30 @@ import qrRoutes from "./routes/qr.routes.js";
 import subscriptionRoutes from "./routes/subscription.routes.js"
 import progressRoutes from "./routes/progress.routes.js"
 import rentalRoutes from "./routes/rental.routes.js"
+import authorRoutes from "./routes/author.routes.js"
+import adminRoutes from "./routes/admin.routes.js"
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
 // Middlewares globales
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:4173", // local prod
+  "http://localhost:5173", // dev
+  process.env.LAN_ORIGIN,      //
+  process.env.FRONTEND_URL,    // producción real
+  ].filter(Boolean); // por si FRONTEND_URL no está definida en local, no metas "undefined" al arreglo
+  ;
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Sin origin (curl, apps móviles, health checks) se permite
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("No permitido por CORS"));
+  },
+}));
 app.use(express.json())
 
 // Rutas
@@ -22,15 +40,22 @@ app.use("/api/qr", qrRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/rentals", rentalRoutes);
+app.use("/api/authors", authorRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Ruta de prueba
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', project: 'BiblioChile API' })
 })
 
-// Arrancar servidor
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+// Arrancar servidor — solo si el archivo se ejecuta directamente (node
+// src/server.js), no cuando se importa `app` (tests de integración con
+// supertest importan la app sin necesidad de un puerto real escuchando).
+const isMainModule = process.argv[1] === new URL(import.meta.url).pathname;
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+  })
+}
 
 export default app
