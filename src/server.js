@@ -24,10 +24,11 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Sin origin (curl, apps móviles, health checks) se permite
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    console.log("CORS rechazado — origin recibido:", JSON.stringify(origin));
+    console.log("CORS rechazado — allowedOrigins actual:", JSON.stringify(allowedOrigins));
     return callback(new Error("No permitido por CORS"));
   },
 }));
