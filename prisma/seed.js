@@ -98,6 +98,51 @@ async function main() {
   });
 
   console.log("QRs creados:", qr1.code, qr2.code, qr3.code);
+
+  const demoAuthorPassword = await bcrypt.hash(
+    process.env.DEMO_AUTHOR_PASSWORD || "autor12345",
+    10
+  );
+
+  const demoAuthorUser = await prisma.user.upsert({
+    where: { email: "autor-demo@bibliochile.cl" },
+    update: {},
+    create: {
+      email: "autor-demo@bibliochile.cl",
+      password: demoAuthorPassword,
+      role: "autor",
+      name: "Autor Demo BiblioChile",
+    },
+  });
+
+  const demoAuthor = await prisma.author.upsert({
+    where: { user_id: demoAuthorUser.id },
+    update: {},
+    create: {
+      user_id: demoAuthorUser.id,
+      rut: "11.111.111-1",
+      bio: "Autor de demostración para pruebas de BiblioChile",
+      status: "aprobado",
+      declaration_accepted: true,
+    },
+  });
+
+  const demoBook = await prisma.book.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      title: "Obra de Demostración — BiblioChile",
+      author_id: demoAuthor.id,
+      is_free: false,
+      content_url: "https://example.com/obra-demo.pdf",
+      cover_url: null,
+      description: "Libro de pago de ejemplo, para demostrar el flujo de suscripción y arriendo.",
+    },
+  });
+
+  console.log("Autor de demo creado:", demoAuthorUser.email, "| Libro de pago:", demoBook.title, `(id: ${demoBook.id})`);
+
 }
 
 main()
