@@ -27,8 +27,6 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    console.log("CORS rechazado — origin recibido:", JSON.stringify(origin));
-    console.log("CORS rechazado — allowedOrigins actual:", JSON.stringify(allowedOrigins));
     return callback(new Error("No permitido por CORS"));
   },
 }));
