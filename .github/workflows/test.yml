@@ -48,4 +48,3 @@ jobs:
         run: npx vitest run tests/integration
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bibliochile_test
-                        postgresql://postgres:postgres@localhost:5432/bibliochile_test
