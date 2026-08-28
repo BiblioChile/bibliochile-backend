@@ -2,11 +2,24 @@ name: Tests
 on:
   push:
     branches: [main]
-  pull_request:
+  pull_request_target:
     branches: [main]
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bibliochile_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,6 +37,17 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bibliochile_test
-
-      - name: Run unit tests
+        
+      - name: Migrate test database
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bibliochile_test
+          
+      - name: Run tests
         run: npx vitest run tests/unit
+
+      - name: Run integration tests
+        run: npx vitest run tests/integration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bibliochile_test
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
