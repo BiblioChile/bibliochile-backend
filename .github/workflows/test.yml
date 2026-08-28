@@ -35,6 +35,8 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bibliochile_test
         
       - name: Migrate test database
         run: npx prisma migrate deploy
