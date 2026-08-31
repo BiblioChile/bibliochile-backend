@@ -143,6 +143,103 @@ async function main() {
 
   console.log("Autor de demo creado:", demoAuthorUser.email, "| Libro de pago:", demoBook.title, `(id: ${demoBook.id})`);
 
+  // 4. Datos de demostración para "Mis estadísticas" (autor) y "Continuar
+  // leyendo" (lector) — sin esto, el libro de demo queda sin ReadingProgress
+  // ni Rental, y EstadisticasAutor mostraría todo en cero.
+  const demoReaderPassword = await bcrypt.hash(
+    process.env.DEMO_READER_PASSWORD || "lector12345",
+    10
+  );
+
+  // 3 lectores de prueba distintos, con progreso variado (no todos en 0 o
+  // 100) sobre el mismo libro de demo — ReadingProgress tiene @@unique
+  // ([user_id, book_id]), así que cada uno debe ser un user_id distinto.
+  const demoReaders = await Promise.all(
+    [
+      { email: "lector-demo-1@bibliochile.cl", name: "Lector Demo 1", progress: 25 },
+      { email: "lector-demo-2@bibliochile.cl", name: "Lector Demo 2", progress: 60 },
+      { email: "lector-demo-3@bibliochile.cl", name: "Lector Demo 3", progress: 90 },
+    ].map(async ({ email, name, progress }) => {
+      const user = await prisma.user.upsert({
+        where: { email },
+        update: {},
+        create: { email, password: demoReaderPassword, role: "pasajero", name },
+      });
+
+      await prisma.readingProgress.upsert({
+        where: { user_id_book_id: { user_id: user.id, book_id: demoBook.id } },
+        update: { progress_percentage: progress },
+        create: {
+          user_id: user.id,
+          book_id: demoBook.id,
+          progress_percentage: progress,
+          last_position: "chapter-1",
+        },
+      });
+
+      return user;
+    })
+  );
+
+  console.log("Progreso de lectura de demo creado para:", demoReaders.map((r) => r.email).join(", "));
+
+  // Pasajero con suscripción activa + arriendo del libro de pago de demo —
+  // Rental requiere subscription_id, así que la suscripción va primero.
+  const demoRentalReaderUser = await prisma.user.upsert({
+    where: { email: "lector-demo-arriendo@bibliochile.cl" },
+    update: {},
+    create: {
+      email: "lector-demo-arriendo@bibliochile.cl",
+      password: demoReaderPassword,
+      role: "pasajero",
+      name: "Lector Demo con Arriendo",
+    },
+  });
+
+  let demoSubscription = await prisma.subscription.findFirst({
+    where: { user_id: demoRentalReaderUser.id, status: "activa" },
+  });
+
+  if (!demoSubscription) {
+    const start_date = new Date();
+    const end_date = new Date();
+    end_date.setDate(end_date.getDate() + planMensual.duration_days);
+
+    demoSubscription = await prisma.subscription.create({
+      data: {
+        user_id: demoRentalReaderUser.id,
+        plan_id: planMensual.id,
+        start_date,
+        end_date,
+        status: "activa",
+      },
+    });
+  }
+
+  const existingDemoRental = await prisma.rental.findFirst({
+    where: { user_id: demoRentalReaderUser.id, book_id: demoBook.id },
+  });
+
+  if (!existingDemoRental) {
+    const expires_at = new Date(demoSubscription.end_date);
+
+    await prisma.rental.create({
+      data: {
+        user_id: demoRentalReaderUser.id,
+        book_id: demoBook.id,
+        subscription_id: demoSubscription.id,
+        expires_at,
+      },
+    });
+  }
+
+  console.log(
+    "Suscripción + arriendo de demo creados para:",
+    demoRentalReaderUser.email,
+    "sobre el libro de pago id:",
+    demoBook.id
+  );
+
 }
 
 main()
