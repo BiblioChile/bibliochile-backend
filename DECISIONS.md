@@ -461,3 +461,36 @@ que expirara la vigente. Implementado por pedido explícito en
   la nueva `"activa"` — y que `GET /subscriptions/me` refleja el plan nuevo de inmediato).
   Documentado en `EC-PU-002-suscripcion.md` y `EC-PI-004-subscriptions.md`. Suite completa:
   136/136 tests (17 archivos)
+
+## 2026-08-31 — Decisión de alcance: sin aprobación a nivel de libro individual
+
+Se evaluó agregar un flujo de aprobación a nivel de libro individual (distinto de la
+aprobación de autor que ya existe, HU-09). Se decide **NO implementarlo**: ninguna HU del
+proyecto lo exige — HU-06 solo pide que el autor pueda publicar una vez aprobado como
+autor, y HU-09 es específicamente sobre aprobar la solicitud de autoría, no cada obra
+subida. Agregarlo habría sido alcance adicional no comprometido, en un momento del
+proyecto donde priorizamos cerrar al 100% lo que sí está definido en los requerimientos.
+
+Queda documentado como decisión consciente de alcance (`env/prompt_backend_ajustes.md`),
+no como algo que se pasó por alto.
+
+## 2026-08-31 — Seed: datos de demostración para estadísticas de autor y lector
+
+El libro de pago de demo (`autor-demo@bibliochile.cl`) no tenía ningún `ReadingProgress`
+ni `Rental` asociado — `GET /authors/me/stats` mostraría todo en cero al loguearse como
+ese autor. `prisma/seed.js` ahora agrega, después de crear el autor y libro de demo:
+
+- 3 usuarios `pasajero` distintos (`lector-demo-1/2/3@bibliochile.cl`), cada uno con un
+  `ReadingProgress` sobre el libro de demo con `progress_percentage` variado (25/60/90 —
+  no todos en 0 o 100)
+- 1 usuario `pasajero` adicional (`lector-demo-arriendo@bibliochile.cl`) con una
+  `Subscription` activa (plan mensual, creada si no existe) y un `Rental` sobre el libro
+  de demo
+
+Ambos bloques son idempotentes (`upsert` para `ReadingProgress`, `findFirst` antes de
+`create` para `Subscription`/`Rental` — que no tienen una clave natural para `upsert`),
+así que correr `npx prisma db seed` más de una vez no duplica filas. Verificado
+directamente: `getMyStats()` sobre el autor de demo devuelve
+`{ totalBooks: 1, totalReaders: 3, avgProgressPercentage: 58.33, totalRentals: 1 }`, y una
+segunda corrida del seed deja los mismos 3 `ReadingProgress` + 1 `Rental` (sin duplicar).
+Suite completa tras el cambio: 136/136 tests (17 archivos).
