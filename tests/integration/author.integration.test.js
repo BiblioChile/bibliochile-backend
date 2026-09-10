@@ -231,4 +231,66 @@ describe("EC-PI-007b · GET /api/authors/me (HTTP real, sin requireRole — func
 
     expect(res.status).toBe(401);
   });
+
+  it("Escenario 4 (reenvío real tras rechazo): un autor rechazado puede volver a postular con el mismo RUT, reutilizando su misma fila", async () => {
+    const { token, user } = await registerAndLogin({ role: "pasajero" });
+    userId = user.id;
+    const rut = validRut();
+
+    const registerRes = await request(app)
+      .post("/api/authors/register")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ rut, bio: "Primer intento", declarationAccepted: true });
+    expect(registerRes.status).toBe(201);
+
+    const firstAuthorId = registerRes.body.id;
+    const adminToken = await loginAsAdmin();
+    const rejectRes = await request(app)
+      .patch(`/api/admin/authors/${firstAuthorId}/reject`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "otro", note: "Falta declaración jurada legible" });
+    expect(rejectRes.status).toBe(200);
+
+    // Antes del fix, este segundo POST daba 409 "Ya tienes un registro de
+    // autor" sin importar el status — ahora debe reutilizar la misma fila.
+    const resubmitRes = await request(app)
+      .post("/api/authors/register")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ rut, bio: "Segundo intento, corregido", declarationAccepted: true });
+
+    expect(resubmitRes.status).toBe(201);
+    expect(resubmitRes.body.id).toBe(firstAuthorId);
+    expect(resubmitRes.body.status).toBe("pendiente");
+
+    const authorInDb = await prisma.author.findUnique({ where: { user_id: user.id } });
+    expect(authorInDb.id).toBe(firstAuthorId);
+    expect(authorInDb.rut).toBe(rut);
+    expect(authorInDb.bio).toBe("Segundo intento, corregido");
+    expect(authorInDb.status).toBe("pendiente");
+    expect(authorInDb.rejection_reason).toBeNull();
+    expect(authorInDb.rejection_note).toBeNull();
+
+    // Solo debe existir una fila para este usuario, no una nueva.
+    const totalForUser = await prisma.author.count({ where: { user_id: user.id } });
+    expect(totalForUser).toBe(1);
+  });
+
+  it("Escenario 5 (caso inválido, no-regresión): un autor con postulación pendiente sigue bloqueado (no puede reenviar)", async () => {
+    const { token, user } = await registerAndLogin({ role: "pasajero" });
+    userId = user.id;
+
+    const registerRes = await request(app)
+      .post("/api/authors/register")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ rut: validRut(), declarationAccepted: true });
+    expect(registerRes.status).toBe(201);
+
+    const secondRes = await request(app)
+      .post("/api/authors/register")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ rut: validRut(), declarationAccepted: true });
+
+    expect(secondRes.status).toBe(409);
+    expect(secondRes.body.message).toBe("Ya tienes un registro de autor");
+  });
 });
