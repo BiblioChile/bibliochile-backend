@@ -6,13 +6,33 @@ const registerAuthor = async (userId, rut, bio, declarationAccepted) => {
     }
 
     const existingByUser = await prisma.author.findUnique({ where: { user_id: userId } });
-    if (existingByUser) {
+
+    // Solo bloquea si ya tiene una postulación pendiente o ya aprobada. Un
+    // autor rechazado puede volver a postular reutilizando su misma fila
+    // (en vez de quedar bloqueado para siempre por su user_id/rut previos).
+    if (existingByUser && existingByUser.status !== "rechazado") {
         throw new Error("Ya tienes un registro de autor");
     }
 
     const existingByRut = await prisma.author.findUnique({ where: { rut } });
-    if (existingByRut) {
+    if (existingByRut && existingByRut.user_id !== userId) {
         throw new Error("El RUT ya está registrado");
+    }
+
+    if (existingByUser) {
+        const author = await prisma.author.update({
+            where: { id: existingByUser.id },
+            data: {
+                rut,
+                bio: bio ?? null,
+                declaration_accepted: declarationAccepted,
+                status: "pendiente",
+                rejection_reason: null,
+                rejection_note: null,
+            },
+        });
+
+        return author;
     }
 
     const author = await prisma.author.create({
